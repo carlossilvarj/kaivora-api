@@ -1,6 +1,8 @@
 from fastapi import FastAPI
-from routers import users
+from roteadores import auth, usuarios, mensagens
 
-app = FastAPI()
+app = FastAPI(title="Kaivora API")
 
-app.include_router(users.router)
+app.include_router(auth.router)
+app.include_router(usuarios.router)
+app.include_router(mensagens.router)
