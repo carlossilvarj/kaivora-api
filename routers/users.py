@@ -1,28 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from app.core.auth import authenticate_user, create_access_token, verify_token
+from fastapi import APIRouter, HTTPException
 
-router = APIRouter()
+router = APIRouter(prefix="/usuarios", tags=["Usuários"])
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+@router.get("/{usuario_id}")
+async def obter_usuario(usuario_id: int):
+    return {"id": usuario_id, "nome": "Usuário Exemplo"}
 
-@router.post("/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuário ou senha inválidos"
-        )
-    access_token = create_access_token(data={"sub": user["username"]})
-    return {"access_token": access_token, "token_type": "bearer"}
+@router.put("/{usuario_id}")
+async def atualizar_usuario(usuario_id: int):
+    return {"mensagem": f"Usuário {usuario_id} atualizado com sucesso."}
 
-@router.get("/protected")
-async def protected_route(token: str = Depends(oauth2_scheme)):
-    user = verify_token(token)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido ou expirado"
-        )
-    return {"message": f"Olá, {user['username']}! Você está acessando uma rota protegida."}
+@router.delete("/{usuario_id}")
+async def deletar_usuario(usuario_id: int):
+    return {"mensagem": f"Usuário {usuario_id} removido do sistema."}
+
