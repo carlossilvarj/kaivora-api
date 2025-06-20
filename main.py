@@ -1,12 +1,11 @@
 """
-Kaivora API - FastAPI Web Server
+Kaivora API – FastAPI Web Server
 Main entry point for the application
 """
 
 import uvicorn
 from app import create_app
 
-# Create FastAPI application instance
 app = create_app()
 
 if __name__ == "__main__":
