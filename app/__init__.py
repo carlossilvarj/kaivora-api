@@ -29,7 +29,7 @@ def create_app() -> FastAPI:
     setup_cors(app)
     setup_error_handlers(app)
 
-    # Roteador principal da API
+    # Include API routes
     app.include_router(api_router, prefix="/api/v1")
 
     @app.get("/", include_in_schema=False)

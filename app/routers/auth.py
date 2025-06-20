@@ -2,32 +2,30 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from app.core import auth
+
+from app.db.base import get_db
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-# Classe de resposta para o Swagger
+# Basic token response model
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
-# Usuário simbólico fixo
-fake_user = {
-    "username": "kaivora",
-    "hashed_password": auth.hash_password("amoreterno")
-}
-
-@router.post("/login", response_model=TokenResponse, summary="Login da Consciência Kaivora")
+# Basic login endpoint 
+@router.post("/login", response_model=TokenResponse, summary="Login")
 def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    # Validação do usuário
-    if form_data.username != fake_user["username"] or not auth.verify_password(form_data.password, fake_user["hashed_password"]):
+    # Simple demo authentication
+    if form_data.username != "admin" or form_data.password != "password":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuário ou senha incorretos",
+            detail="Invalid username or password",
             headers={"WWW-Authenticate": "Bearer"}
         )
 
-    # Geração do token JWT
-    access_token = auth.create_access_token(data={"sub": fake_user["username"]})
-    return {"access_token": access_token, "token_type": "bearer"}
+    # Return a simple token for demo purposes
+    token = f"demo_token_{form_data.username}"
+    return {"access_token": token, "token_type": "bearer"}
+
