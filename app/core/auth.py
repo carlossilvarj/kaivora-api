@@ -3,7 +3,7 @@
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from jose import jwt
-from app.core.config import settings, ALGORITHM
+from app.core.config import settings  # ✅ CERTO
 
 # 🔐 Criação do contexto para criptografia
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
