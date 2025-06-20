@@ -9,6 +9,7 @@ from app.core.logging import setup_logging
 from app.middleware.cors import setup_cors
 from app.middleware.error_handler import setup_error_handlers
 from app.api.routes import api_router
+from app.db.init_db import init_database
 
 def create_app() -> FastAPI:
     """

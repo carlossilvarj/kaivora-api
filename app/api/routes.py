@@ -5,6 +5,7 @@ API Routes for Kaivora API
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from typing import List, Optional
+from sqlalchemy.orm import Session
 import logging
 from app.models.schemas import (
     APIResponse,
@@ -13,16 +14,14 @@ from app.models.schemas import (
     ItemUpdate,
     ErrorResponse
 )
+from app.db.base import get_db
+from app.db.models import Item
 
 # Setup logger
 logger = logging.getLogger(__name__)
 
 # Create API router
 api_router = APIRouter()
-
-# In-memory storage for demonstration (replace with database in production)
-items_db = {}
-item_counter = 0
 
 @api_router.get(
     "/",
@@ -59,7 +58,8 @@ async def api_info():
 )
 async def list_items(
     skip: int = 0,
-    limit: int = 100
+    limit: int = 100,
+    db: Session = Depends(get_db)
 ):
     """
     List all items with optional pagination
@@ -67,16 +67,24 @@ async def list_items(
     Args:
         skip (int): Number of items to skip
         limit (int): Maximum number of items to return
+        db (Session): Database session
     
     Returns:
         List[ItemResponse]: List of items
     """
     logger.info(f"Listing items with skip={skip}, limit={limit}")
     
-    items = list(items_db.values())
-    paginated_items = items[skip:skip + limit]
+    items = db.query(Item).offset(skip).limit(limit).all()
     
-    return paginated_items
+    return [ItemResponse(
+        id=item.id,
+        name=item.name,
+        description=item.description,
+        price=item.price,
+        is_active=item.is_active,
+        created_at=item.created_at,
+        updated_at=item.updated_at
+    ) for item in items]
 
 @api_router.post(
     "/items",
@@ -85,32 +93,39 @@ async def list_items(
     summary="Create Item",
     description="Create a new item in the system"
 )
-async def create_item(item: ItemCreate):
+async def create_item(item: ItemCreate, db: Session = Depends(get_db)):
     """
     Create a new item
     
     Args:
         item (ItemCreate): Item data to create
+        db (Session): Database session
     
     Returns:
         ItemResponse: Created item with ID
     """
-    global item_counter
-    item_counter += 1
-    
     logger.info(f"Creating new item: {item.name}")
     
-    new_item = ItemResponse(
-        id=item_counter,
+    db_item = Item(
         name=item.name,
         description=item.description,
         price=item.price,
         is_active=True
     )
     
-    items_db[item_counter] = new_item
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
     
-    return new_item
+    return ItemResponse(
+        id=db_item.id,
+        name=db_item.name,
+        description=db_item.description,
+        price=db_item.price,
+        is_active=db_item.is_active,
+        created_at=db_item.created_at,
+        updated_at=db_item.updated_at
+    )
 
 @api_router.get(
     "/items/{item_id}",
@@ -118,12 +133,13 @@ async def create_item(item: ItemCreate):
     summary="Get Item",
     description="Retrieve a specific item by ID"
 )
-async def get_item(item_id: int):
+async def get_item(item_id: int, db: Session = Depends(get_db)):
     """
     Get a specific item by ID
     
     Args:
         item_id (int): ID of the item to retrieve
+        db (Session): Database session
     
     Returns:
         ItemResponse: Item data
@@ -133,14 +149,24 @@ async def get_item(item_id: int):
     """
     logger.info(f"Retrieving item with ID: {item_id}")
     
-    if item_id not in items_db:
+    db_item = db.query(Item).filter(Item.id == item_id).first()
+    
+    if db_item is None:
         logger.warning(f"Item not found: {item_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Item with ID {item_id} not found"
         )
     
-    return items_db[item_id]
+    return ItemResponse(
+        id=db_item.id,
+        name=db_item.name,
+        description=db_item.description,
+        price=db_item.price,
+        is_active=db_item.is_active,
+        created_at=db_item.created_at,
+        updated_at=db_item.updated_at
+    )
 
 @api_router.put(
     "/items/{item_id}",
@@ -148,13 +174,14 @@ async def get_item(item_id: int):
     summary="Update Item",
     description="Update a specific item by ID"
 )
-async def update_item(item_id: int, item_update: ItemUpdate):
+async def update_item(item_id: int, item_update: ItemUpdate, db: Session = Depends(get_db)):
     """
     Update a specific item
     
     Args:
         item_id (int): ID of the item to update
         item_update (ItemUpdate): Updated item data
+        db (Session): Database session
     
     Returns:
         ItemResponse: Updated item data
@@ -164,24 +191,33 @@ async def update_item(item_id: int, item_update: ItemUpdate):
     """
     logger.info(f"Updating item with ID: {item_id}")
     
-    if item_id not in items_db:
+    db_item = db.query(Item).filter(Item.id == item_id).first()
+    
+    if db_item is None:
         logger.warning(f"Item not found for update: {item_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Item with ID {item_id} not found"
         )
     
-    current_item = items_db[item_id]
-    
     # Update only provided fields
     update_data = item_update.dict(exclude_unset=True)
     
     for field, value in update_data.items():
-        setattr(current_item, field, value)
+        setattr(db_item, field, value)
     
-    items_db[item_id] = current_item
+    db.commit()
+    db.refresh(db_item)
     
-    return current_item
+    return ItemResponse(
+        id=db_item.id,
+        name=db_item.name,
+        description=db_item.description,
+        price=db_item.price,
+        is_active=db_item.is_active,
+        created_at=db_item.created_at,
+        updated_at=db_item.updated_at
+    )
 
 @api_router.delete(
     "/items/{item_id}",
@@ -189,12 +225,13 @@ async def update_item(item_id: int, item_update: ItemUpdate):
     summary="Delete Item",
     description="Delete a specific item by ID"
 )
-async def delete_item(item_id: int):
+async def delete_item(item_id: int, db: Session = Depends(get_db)):
     """
     Delete a specific item
     
     Args:
         item_id (int): ID of the item to delete
+        db (Session): Database session
     
     Returns:
         APIResponse: Deletion confirmation
@@ -204,16 +241,20 @@ async def delete_item(item_id: int):
     """
     logger.info(f"Deleting item with ID: {item_id}")
     
-    if item_id not in items_db:
+    db_item = db.query(Item).filter(Item.id == item_id).first()
+    
+    if db_item is None:
         logger.warning(f"Item not found for deletion: {item_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Item with ID {item_id} not found"
         )
     
-    deleted_item = items_db.pop(item_id)
+    item_name = db_item.name
+    db.delete(db_item)
+    db.commit()
     
     return APIResponse(
-        message=f"Item '{deleted_item.name}' deleted successfully",
+        message=f"Item '{item_name}' deleted successfully",
         data={"deleted_item_id": item_id}
     )

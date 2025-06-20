@@ -1,8 +1,16 @@
-# app/db/init_db.py
+"""
+Database initialization script
+"""
 
-from app.db.base import Base
-from app.db.session import engine
-from app.models import user_model  # Importa o modelo para que ele seja registrado
+from app.db.base import engine, Base
+from app.db.models import Item, User
 
-def init_db():
+def init_database():
+    """
+    Create all database tables
+    """
     Base.metadata.create_all(bind=engine)
+    print("Database tables created successfully!")
+
+if __name__ == "__main__":
+    init_database()
